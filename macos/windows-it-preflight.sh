@@ -112,11 +112,17 @@ container="$(printf '%s\n' "$root_info" | /usr/bin/awk -F: '
     }
 ')"
 
+resize_limits=""
+resize_status=127
 case "$container" in
     disk[0-9]*)
         if printf '%s\n' "$container" | /usr/bin/grep -Eq '^disk[0-9]+$'; then
             capture "APFS container layout" /usr/sbin/diskutil apfs list "$container"
-            capture "Read-only APFS container resize limits" /usr/sbin/diskutil apfs resizeContainer "$container" limits
+            printf '\n## Read-only APFS container resize limits\n$ /usr/sbin/diskutil apfs resizeContainer %s limits\n' "$container" >> "$output_path"
+            resize_limits="$(/usr/sbin/diskutil apfs resizeContainer "$container" limits 2>&1)"
+            resize_status=$?
+            printf '%s\n' "$resize_limits" | redact_uuids >> "$output_path"
+            printf '[exit status: %s]\n' "$resize_status" >> "$output_path"
         else
             printf '\n## APFS container diagnostics\nCould not safely identify the root APFS container from diskutil info output.\n' >> "$output_path"
         fi
@@ -126,7 +132,51 @@ case "$container" in
         ;;
 esac
 
-capture "APFS snapshots on the root volume" /usr/sbin/diskutil apfs listSnapshots /
+snapshots="$(/usr/sbin/diskutil apfs listSnapshots / 2>&1)"
+snapshot_status=$?
+printf '\n## APFS snapshots on the root volume\n$ /usr/sbin/diskutil apfs listSnapshots /\n' >> "$output_path"
+printf '%s\n' "$snapshots" | redact_uuids >> "$output_path"
+printf '[exit status: %s]\n' "$snapshot_status" >> "$output_path"
+
+resize_values="$(printf '%s\n' "$resize_limits" | /usr/bin/awk '
+    {
+        count = split($0, fields, /\(/)
+        bytes = fields[count]
+        gsub(/[^0-9]/, "", bytes)
+    }
+    /Current Physical Store partition size on map:/ {
+        current = bytes
+    }
+    /Minimum \(constrained by file\/snapshot usage\):/ {
+        minimum = bytes
+    }
+    /Recommended minimum \(if used with macOS\):/ {
+        recommended = bytes
+    }
+    END {
+        if (current > 0 && minimum > 0 && recommended > 0) {
+            printf "%.0f %.0f %.0f\n", current, minimum, recommended
+        }
+    }
+')"
+
+printf '\n## Pre-install space planning (estimates only)\n' >> "$output_path"
+if [ "$resize_status" -eq 0 ] && [ -n "$resize_values" ]; then
+    set -- $resize_values
+    /usr/bin/awk -v current="$1" -v minimum="$2" -v recommended="$3" 'BEGIN {
+        printf "Current APFS container size: %.1f GB\n", current / 1000000000
+        printf "Minimum from current file/snapshot constraints: %.1f GB\n", minimum / 1000000000
+        printf "Recommended minimum when retaining macOS: %.1f GB\n", recommended / 1000000000
+        printf "Approximate upper-bound shrink while retaining the recommended minimum: %.1f GB\n", (current - recommended) / 1000000000
+    }' >> "$output_path"
+    if printf '%s\n' "$snapshots" | /usr/bin/grep -q 'limits the minimum size'; then
+        printf 'A listed APFS snapshot is reported as limiting the minimum container size; review the snapshot details before any partitioning decision.\n' >> "$output_path"
+    fi
+    printf 'These are diskutil estimates, not a recommended Windows partition size or a guarantee of reclaimable space. Do not use the shrink estimate as an install target.\n' >> "$output_path"
+else
+    printf 'Could not compute a space estimate; review the raw APFS resize-limit and snapshot diagnostics above.\n' >> "$output_path"
+fi
+
 capture "System Integrity Protection status" /usr/bin/csrutil status
 capture "FileVault status" /usr/bin/fdesetup status
 
