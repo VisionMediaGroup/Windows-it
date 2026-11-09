@@ -2,15 +2,16 @@
 
 `windows-it-preflight.sh` is a read-only information-gathering tool for planning
 future Apple Silicon Windows installation work. It records macOS version and
-model, internal physical disk layout, root APFS container details and resize
-limits, System Integrity Protection, and FileVault status. These checks do not
-capture the complete Apple boot policy.
+model, internal physical disk layout, root filesystem usage, APFS container
+layout and resize limits, root-volume snapshots, System Integrity Protection,
+and FileVault status. It resolves the root APFS container from the root device
+identifier when macOS does not report a container reference directly. These
+checks do not capture the complete Apple boot policy.
 
 Run it from Terminal:
 
 ```sh
-chmod +x macos/windows-it-preflight.sh
-./macos/windows-it-preflight.sh
+bash macos/windows-it-preflight.sh
 ```
 
 By default, the report is created in the current directory with a timestamped
