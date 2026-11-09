@@ -6,13 +6,27 @@ model, internal physical disk layout, root filesystem usage, APFS container
 layout and resize limits, root-volume snapshots, System Integrity Protection,
 and FileVault status. It resolves the root APFS container from the root device
 identifier when macOS does not report a container reference directly. These
-checks do not capture the complete Apple boot policy.
+checks do not capture the complete Apple boot policy. The report also includes
+a planning summary based on `diskutil`'s resize limits and notes when an APFS
+snapshot is reported as limiting the minimum size. The calculated shrink
+amount is an estimate, not a recommended partition size or guarantee.
 
 Run it from Terminal:
 
 ```sh
 bash macos/windows-it-preflight.sh
 ```
+
+To start the pre-installation checks from the repository root, run:
+
+```sh
+bash macos/windows-it-preinstall.sh
+```
+
+This launcher runs the read-only preflight and then stops intentionally. The
+Apple silicon partitioning and Windows installation process is not implemented
+or validated, so the launcher will not modify disks or install an operating
+system.
 
 By default, the report is created in the current directory with a timestamped
 name. To choose another location, pass `--output FILE`. The tool refuses to
