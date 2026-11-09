@@ -66,6 +66,10 @@ Windows-it is currently in the research and planning phase.
 
 Many components are experimental, incomplete, or under active investigation.
 
+The read-only macOS preflight tool in [`macos/`](macos/README.md) collects disk,
+APFS resize-limit, and boot-policy diagnostics to inform future partitioning
+work. It does not modify disks or install Windows.
+
 ## Repository Structure
 
 ```text
