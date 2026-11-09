@@ -81,22 +81,34 @@ capture "macOS version" /usr/bin/sw_vers
 capture "Hardware model identifier" /usr/sbin/sysctl -n hw.model
 capture "System architecture" /usr/bin/uname -m
 capture "Internal physical disks and partition layout" /usr/sbin/diskutil list internal physical
+capture "Root filesystem capacity and usage" /bin/df -h /
 
 root_info="$(/usr/sbin/diskutil info / 2>&1)"
 root_status=$?
 printf '\n## Root volume details (serial numbers and UUIDs omitted)\n' >> "$output_path"
 printf '%s\n' "$root_info" | /usr/bin/awk -F: '
-    /^[[:space:]]*(Device Identifier|Device Node|Volume Name|Mounted|Mount Point|File System Personality|Type \(Bundle\)|APFS Container Reference|APFS Physical Store|Partition Type|Protocol|Device Location|Internal|Solid State|Total Size|Available Space):/ {
+    /^[[:space:]]*(Device Identifier|Device Node|Volume Name|Mounted|Mount Point|File System Personality|Type \(Bundle\)|APFS Container( Reference)?|APFS Physical Store|Partition Type|Protocol|Device Location|Internal|Solid State|Total Size|Available Space|Volume Used Space|Volume Free Space|Container Total Space|Container Free Space):/ {
         print
     }
 ' >> "$output_path"
 printf '[exit status: %s]\n' "$root_status" >> "$output_path"
 
 container="$(printf '%s\n' "$root_info" | /usr/bin/awk -F: '
-    /^[[:space:]]*APFS Container Reference:/ {
-        sub(/^[[:space:]]*/, "", $2)
-        print $2
-        exit
+    /^[[:space:]]*APFS Container( Reference)?:/ {
+        container = $2
+        sub(/^[[:space:]]*/, "", container)
+    }
+    /^[[:space:]]*Device Identifier:/ {
+        device = $2
+        sub(/^[[:space:]]*/, "", device)
+    }
+    END {
+        if (container ~ /^disk[0-9]+$/) {
+            print container
+        } else if (device ~ /^disk[0-9]+s[0-9]+/) {
+            sub(/s[0-9]+.*$/, "", device)
+            print device
+        }
     }
 ')"
 
@@ -106,14 +118,15 @@ case "$container" in
             capture "APFS container layout" /usr/sbin/diskutil apfs list "$container"
             capture "Read-only APFS container resize limits" /usr/sbin/diskutil apfs resizeContainer "$container" limits
         else
-            printf '\n## APFS resize limits\nCould not safely identify the root APFS container.\n' >> "$output_path"
+            printf '\n## APFS container diagnostics\nCould not safely identify the root APFS container from diskutil info output.\n' >> "$output_path"
         fi
         ;;
     *)
-        printf '\n## APFS resize limits\nNo root APFS container reference was reported.\n' >> "$output_path"
+        printf '\n## APFS container diagnostics\nNo root APFS container reference or usable root device identifier was reported.\n' >> "$output_path"
         ;;
 esac
 
+capture "APFS snapshots on the root volume" /usr/sbin/diskutil apfs listSnapshots /
 capture "System Integrity Protection status" /usr/bin/csrutil status
 capture "FileVault status" /usr/bin/fdesetup status
 
