@@ -1,0 +1,161 @@
+WINDOWS-IT MACOS INSTALLATION: LIKELY STOP AND ERROR CODES
+==========================================================
+
+Purpose
+-------
+This is an initial troubleshooting checklist for a possible future Windows
+installation on Apple silicon. It is not an exhaustive catalog, and the codes
+below are possible examples, not evidence that a compatible installer exists.
+
+Important project status
+------------------------
+The current macOS pre-install launcher runs read-only diagnostics and then
+intentionally stops. This repository does not yet contain a validated Apple
+silicon partitioner, Windows installer, or supported Windows boot path. It
+does not modify partitions or install Windows.
+
+A Windows stop code only becomes relevant if Windows Setup or Windows itself
+actually boots. An Apple startup or boot-policy failure may show no Windows
+stop code at all. Windows on Apple silicon is not a standard PC/Boot Camp
+installation; do not assume PC firmware, drivers, or installer instructions
+apply.
+
+Current pre-install scripts' exit statuses
+-------------------------------------------
+These are statuses from the scripts in this repository, not Windows stop
+codes:
+
+  Status 0: The read-only preflight completed. By itself, this does not mean
+            the machine is ready for installation.
+  Status 1: The preflight or launcher could not proceed (for example, not
+            running on macOS, report path already exists/cannot be created,
+            or preflight script is missing or failed). Read the terminal
+            message and report; fix the specific cause before retrying.
+  Status 2: Invalid command-line arguments to the preflight script. Check
+            --help and correct the arguments.
+  Status 3: Intentional safety stop after diagnostics. Partitioning and
+            installation are not implemented or validated. There is no
+            action to bypass this stop.
+
+Likely Windows Setup errors
+---------------------------
+
+0x80070070 - Not enough space
+  Meaning: Setup cannot use the required storage space.
+  Check/fix: Review Setup's exact target and its space requirements. Use
+  supported storage-management steps only after a validated partition plan
+  exists. Do not delete APFS volumes or shrink the macOS container based only
+  on the preflight estimate.
+
+0x80070017 - Data error / possible media read error
+  Meaning: Installation data could not be read reliably; the exact cause
+  depends on when it occurs.
+  Check/fix: Recreate installation media from a trusted, supported image,
+  verify the download/checksum when available, and retry with known-good
+  media. If it persists, preserve the full error and Setup logs; do not keep
+  retrying against a disk that may be failing.
+
+0x8007025D - Setup could not apply or copy required data
+  Meaning: This code is reported in several Setup scenarios and does not
+  identify one cause by itself.
+  Check/fix: Verify the installation image/media, record the Setup phase and
+  exact message, and inspect Setup logs. Storage, memory, or compatibility
+  problems may need investigation; do not assume one fix without evidence.
+
+0x80070005 - Access denied
+  Meaning: An operation was denied access.
+  Check/fix: Record the exact operation and logs. Check supported account,
+  permissions, and security-policy requirements. Do not disable system
+  protections as a generic workaround.
+
+0xC1900101 - Driver-related setup rollback
+  Meaning: Commonly associated with a driver problem during a Windows
+  upgrade; this is not specific to a clean install or Apple silicon.
+  Check/fix: Identify the failing driver from SetupDiag and Setup logs.
+  Only use drivers explicitly built and validated for the target hardware and
+  Windows build. Do not force-install unrelated PC drivers.
+
+Likely Windows blue-screen (bug check) codes
+--------------------------------------------
+
+0x000000A5 - ACPI_BIOS_ERROR
+  Meaning: Windows rejected or could not use firmware ACPI information.
+  Check/fix: This is a firmware/platform compatibility issue. On Apple
+  silicon, stop and confirm that a supported boot and firmware compatibility
+  layer exists. A normal PC BIOS setting or generic driver is not a safe fix.
+
+0x0000007B - INACCESSIBLE_BOOT_DEVICE
+  Meaning: Windows lost access to its system/boot storage during startup.
+  Check/fix: Capture the boot stage and logs, then verify that the exact
+  storage and boot path is supported and has its validated driver. On this
+  project, missing Apple silicon storage/boot support is a possibility. Do
+  not reformat or alter macOS storage as a troubleshooting guess.
+
+0x000000D1 - DRIVER_IRQL_NOT_LESS_OR_EQUAL
+  Meaning: Often indicates a kernel driver accessed memory incorrectly.
+  Check/fix: Use the dump to identify the driver. Remove or replace only the
+  identified component with a compatible, validated build. If the crash
+  occurs before Windows can boot, use supported recovery and preserve logs.
+
+0x0000007E - SYSTEM_THREAD_EXCEPTION_NOT_HANDLED
+  Meaning: A system thread raised an exception that Windows did not handle;
+  a driver may be involved.
+  Check/fix: Record the named module and dump parameters. Check driver and
+  platform compatibility; do not repeatedly reinstall without isolating the
+  failing component.
+
+0x00000050 - PAGE_FAULT_IN_NONPAGED_AREA
+  Meaning: Invalid memory access; a driver or broader memory/platform issue
+  can be involved.
+  Check/fix: Preserve the dump and identify the faulting module. Verify
+  validated drivers and installation media. Do not infer a hardware fault
+  from this code alone.
+
+0x000000EF - CRITICAL_PROCESS_DIED
+  Meaning: A critical Windows process terminated.
+  Check/fix: Capture the dump and boot/install phase; investigate system
+  file, storage, and driver errors shown in the logs. On an unsupported
+  platform, do not treat reinstalling as a substitute for compatibility.
+
+0x00000124 - WHEA_UNCORRECTABLE_ERROR
+  Meaning: Windows reported a fatal hardware/platform error.
+  Check/fix: Preserve all bug-check parameters and logs. Stop testing if the
+  error repeats. On an unvalidated Apple silicon environment, investigate
+  firmware/platform support before concluding that physical hardware failed.
+
+"No bootable device" / Apple startup returns to macOS
+  Meaning: This may be an Apple boot-policy or boot-chain issue, not a
+  Windows bug check.
+  Check/fix: Do not change Startup Security settings or erase/resize APFS as
+  a guess. Record the exact screen and the last action; use only a documented
+  recovery procedure validated for the specific Mac model.
+
+Before trying again
+-------------------
+1. Photograph or transcribe the complete code, message, and any parameters.
+2. Record the exact stage: media start, disk selection, file copy, first
+   reboot, or later boot.
+3. Keep the diagnostic report, installation-media version, and any logs.
+   Windows Setup logs can include setupact.log and setuperr.log under the
+   Panther directories; their location varies by Setup phase.
+4. Make a verified backup and preserve the original macOS installation.
+5. Stop after a repeated boot/storage/platform failure. Do not repeat disk
+   changes or disable security features without a validated recovery plan.
+
+These notes describe possible investigation paths, not guaranteed fixes.
+Fix the underlying cause; simply rerunning Setup can reproduce the same
+failure or risk data loss.
+
+References
+----------
+Microsoft Bug Check Code Reference:
+https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-code-reference2
+
+Microsoft Resolve Windows upgrade errors:
+https://learn.microsoft.com/en-us/windows/deployment/upgrade/resolve-windows-upgrade-errors
+
+Microsoft Bug Check 0x7B - INACCESSIBLE_BOOT_DEVICE:
+https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-0x7b--inaccessible-boot-device
+
+Microsoft Bug Check 0x124 - WHEA_UNCORRECTABLE_ERROR:
+https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-0x124---whea-uncorrectable-error

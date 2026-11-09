@@ -28,6 +28,12 @@ Apple silicon partitioning and Windows installation process is not implemented
 or validated, so the launcher will not modify disks or install an operating
 system.
 
+For an initial, non-exhaustive troubleshooting list of possible future Windows
+Setup errors and blue-screen codes, see
+[`WINDOWS-IT-INSTALL-STOP-CODES.txt`](../WINDOWS-IT-INSTALL-STOP-CODES.txt). The
+codes are examples, not confirmation that Windows installation is supported
+on Apple silicon.
+
 By default, the report is created in the current directory with a timestamped
 name. To choose another location, pass `--output FILE`. The tool refuses to
 overwrite an existing path and creates the report with owner-only permissions.
